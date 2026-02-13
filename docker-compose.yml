@@ -1,0 +1,74 @@
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: dayplanner-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: dayplanner
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - dayplanner-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/dayplanner --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API (FastAPI)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dayplanner-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/dayplanner
+      - JWT_SECRET=your_secret_key_here_change_in_production_min_32_chars_long
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - dayplanner-network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
+
+  # Frontend (React + Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dayplanner-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:5173"
+    environment:
+      - VITE_API_URL=http://localhost:5000
+      - DOCKER_ENV=true
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - dayplanner-network
+    command: npm run dev -- --host 0.0.0.0
+
+networks:
+  dayplanner-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local

@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #3B82F6;
+  --secondary-color: #8B5CF6;
+  --success-color: #10B981;
+  --warning-color: #F59E0B;
+  --danger-color: #EF4444;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900;
+}
+
+button {
+  @apply transition duration-200;
+}
+
+button:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
