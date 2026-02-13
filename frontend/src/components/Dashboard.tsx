@@ -6,10 +6,11 @@ import { TaskList } from './TaskList';
 
 export const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'planner' | 'tasks'>('planner');
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} setActiveTab={setActiveTab} activeTab={activeTab} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} onLogout={onLogout} />
@@ -18,7 +19,9 @@ export const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
           <div className="max-w-6xl mx-auto">
             <DatePicker />
 
-            <TaskList onEditTask={(task) => console.log('Edit task:', task)} />
+            {activeTab === 'planner' && (
+              <TaskList onEditTask={(task) => console.log('Edit task:', task)} />
+            )}
           </div>
         </main>
       </div>

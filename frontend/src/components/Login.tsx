@@ -136,13 +136,7 @@ export const Login = ({ onLoginSuccess }: LoginProps) => {
           </button>
         </form>
 
-        <div className="mt-6 p-4 bg-blue-50 rounded-md">
-          <p className="text-sm text-blue-800 font-medium">Demo Account:</p>
-          <p className="text-sm text-blue-700">
-            Email: demo@example.com<br />
-            Password: demo123
-          </p>
-        </div>
+       
       </div>
     </div>
   );

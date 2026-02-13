@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { useAppStore } from '../store/appStore';
 import { useTasks, useCompleteTask, useCreateTask, useUpdateTask, useDeleteTask } from '../hooks/useTasks';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 
 export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) => {
   const { data: tasks, isLoading } = useTasks();
@@ -14,6 +14,9 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
   const [editingCell, setEditingCell] = useState<{ taskId: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
   const isSaving = useRef(false);
+
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
@@ -341,6 +344,30 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
     );
   };
 
+  // Move task up/down
+  const moveTask = async (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= filteredTasks.length || to >= filteredTasks.length) return;
+    const ordered = filteredTasks.filter((t: any) => !t.isFreeSlot);
+    const taskList = [...ordered];
+    const [moved] = taskList.splice(from, 1);
+    taskList.splice(to, 0, moved);
+    // Recalculate times
+    let start = new Date(selectedDate);
+    start.setHours(9, 0, 0, 0);
+    for (let i = 0; i < taskList.length; i++) {
+      const plannedStartTime = new Date(start);
+      const plannedEndTime = new Date(start.getTime() + (taskList[i].duration || 0) * 60000);
+      await updateTaskMutation.mutateAsync({
+        id: taskList[i]._id,
+        data: {
+          plannedStartTime: plannedStartTime.toISOString(),
+          plannedEndTime: plannedEndTime.toISOString(),
+        },
+      });
+      start = plannedEndTime;
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -386,12 +413,18 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredTasks.map((task: any) => {
+              {filteredTasks.map((task: any, idx: number) => {
                 const startTime = new Date(task.plannedStartTime);
                 const endTime = calculateEndTime(task.plannedStartTime, task.duration);
-                
+                const isMovable = !task.isFreeSlot;
                 return (
-                  <tr key={task._id} className={`${task.isFreeSlot ? 'bg-red-100' : getPriorityColor(task.priority)} hover:bg-gray-50`}>
+                  <tr key={task._id} className={`${task.isFreeSlot ? 'bg-red-100' : getPriorityColor(task.priority)} hover:bg-gray-50`}
+                    draggable={isMovable}
+                    onDragStart={() => setDraggedIndex(idx)}
+                    onDragOver={(e) => { e.preventDefault(); setDragOverIndex(idx); }}
+                    onDrop={async () => { if (draggedIndex !== null) { await moveTask(draggedIndex, idx); setDraggedIndex(null); setDragOverIndex(null); } }}
+                    style={dragOverIndex === idx ? { outline: '2px solid #0ea5e9' } : {}}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {task.isFreeSlot
                         ? formatTimeDisplay(new Date(task.plannedStartTime))
@@ -407,37 +440,29 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
                         ? formatDuration(task.duration) + 'h'
                         : renderEditableCell(task, 'duration', task.duration, formatDuration(task.duration) + 'h')}
                     </td>
-                    <td className="px-6 py-4 text-sm">
+                    <td className="px-6 py-4 text-sm flex items-center gap-2">
                       {task.isFreeSlot
                         ? <span className="text-red-600 font-semibold">Free Slot</span>
                         : renderEditableCell(task, 'title', task.title, task.title)}
-                      {!editingCell && task.description && !task.isFreeSlot && (
-                        <div 
-                          onClick={() => handleCellClick(task._id, 'description', task.description)}
-                          className="text-gray-500 text-xs mt-1 cursor-pointer hover:bg-gray-200 px-2 py-1 rounded"
-                        >
-                          {task.description}
-                        </div>
-                      )}
-                      {editingCell?.taskId === task._id && editingCell?.field === 'description' && !task.isFreeSlot && (
-                        <input
-                          type="text"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onBlur={() => handleCellBlur(task)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              (e.target as HTMLInputElement).blur();
-                            } else if (e.key === 'Escape') {
-                              e.preventDefault();
-                              cancelEdit();
-                            }
-                          }}
-                          placeholder="Description"
-                          autoFocus
-                          className="w-full px-2 py-1 text-xs border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
-                        />
+                      {isMovable && (
+                        <>
+                          <button
+                            className="ml-1 text-gray-400 hover:text-blue-500"
+                            onClick={async (e) => { e.stopPropagation(); await moveTask(idx, idx - 1); }}
+                            disabled={idx === 0 || filteredTasks[idx - 1]?.isFreeSlot}
+                            title="Move up"
+                          >
+                            <ArrowUp size={16} />
+                          </button>
+                          <button
+                            className="ml-1 text-gray-400 hover:text-blue-500"
+                            onClick={async (e) => { e.stopPropagation(); await moveTask(idx, idx + 1); }}
+                            disabled={idx === filteredTasks.length - 1 || filteredTasks[idx + 1]?.isFreeSlot}
+                            title="Move down"
+                          >
+                            <ArrowDown size={16} />
+                          </button>
+                        </>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
