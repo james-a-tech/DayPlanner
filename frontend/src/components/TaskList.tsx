@@ -17,12 +17,41 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
 
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
-    return tasks.filter((task: any) => {
+    // Filter and sort tasks for the selected date
+    const dayTasks = tasks.filter((task: any) => {
       const taskDate = new Date(task.plannedStartTime);
       return taskDate.toDateString() === selectedDate.toDateString();
     }).sort((a: any, b: any) => {
       return new Date(a.plannedStartTime).getTime() - new Date(b.plannedStartTime).getTime();
     });
+
+    // Insert free slot rows for gaps
+    const withFreeSlots: any[] = [];
+    for (let i = 0; i < dayTasks.length; i++) {
+      const prev = dayTasks[i - 1];
+      const curr = dayTasks[i];
+      if (prev) {
+        const prevEnd = new Date(prev.plannedEndTime);
+        const currStart = new Date(curr.plannedStartTime);
+        if (currStart.getTime() > prevEnd.getTime()) {
+          // Insert free slot
+          withFreeSlots.push({
+            _id: `free-${prev._id}-${curr._id}`,
+            plannedStartTime: prev.plannedEndTime,
+            plannedEndTime: curr.plannedStartTime,
+            duration: Math.round((currStart.getTime() - prevEnd.getTime()) / 60000),
+            title: 'Free Slot',
+            description: '',
+            priority: 'low',
+            status: 'free',
+            color: 'red',
+            isFreeSlot: true,
+          });
+        }
+      }
+      withFreeSlots.push(curr);
+    }
+    return withFreeSlots;
   }, [tasks, selectedDate]);
 
   const formatTime = (date: Date) => {
@@ -362,19 +391,27 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
                 const endTime = calculateEndTime(task.plannedStartTime, task.duration);
                 
                 return (
-                  <tr key={task._id} className={`${getPriorityColor(task.priority)} hover:bg-gray-50`}>
+                  <tr key={task._id} className={`${task.isFreeSlot ? 'bg-red-100' : getPriorityColor(task.priority)} hover:bg-gray-50`}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {renderEditableCell(task, 'startTime', task.plannedStartTime, formatTimeDisplay(startTime))}
+                      {task.isFreeSlot
+                        ? formatTimeDisplay(new Date(task.plannedStartTime))
+                        : renderEditableCell(task, 'startTime', task.plannedStartTime, formatTimeDisplay(startTime))}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {renderEditableCell(task, 'endTime', endTime.toISOString(), formatTimeDisplay(endTime))}
+                      {task.isFreeSlot
+                        ? formatTimeDisplay(new Date(task.plannedEndTime))
+                        : renderEditableCell(task, 'endTime', endTime.toISOString(), formatTimeDisplay(endTime))}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {renderEditableCell(task, 'duration', task.duration, formatDuration(task.duration) + 'h')}
+                      {task.isFreeSlot
+                        ? formatDuration(task.duration) + 'h'
+                        : renderEditableCell(task, 'duration', task.duration, formatDuration(task.duration) + 'h')}
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      {renderEditableCell(task, 'title', task.title, task.title)}
-                      {!editingCell && task.description && (
+                      {task.isFreeSlot
+                        ? <span className="text-red-600 font-semibold">Free Slot</span>
+                        : renderEditableCell(task, 'title', task.title, task.title)}
+                      {!editingCell && task.description && !task.isFreeSlot && (
                         <div 
                           onClick={() => handleCellClick(task._id, 'description', task.description)}
                           className="text-gray-500 text-xs mt-1 cursor-pointer hover:bg-gray-200 px-2 py-1 rounded"
@@ -382,7 +419,7 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
                           {task.description}
                         </div>
                       )}
-                      {editingCell?.taskId === task._id && editingCell?.field === 'description' && (
+                      {editingCell?.taskId === task._id && editingCell?.field === 'description' && !task.isFreeSlot && (
                         <input
                           type="text"
                           value={editValue}
@@ -404,27 +441,31 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {getStatusBadge(task.status)}
+                      {task.isFreeSlot
+                        ? <span className="px-2 py-1 rounded-full text-xs bg-red-200 text-red-800">Free</span>
+                        : getStatusBadge(task.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex gap-3 items-center">
-                        {task.status !== 'completed' && (
+                      {!task.isFreeSlot && (
+                        <div className="flex gap-3 items-center">
+                          {task.status !== 'completed' && (
+                            <button
+                              onClick={() => handleComplete(task)}
+                              className="text-green-600 hover:text-green-900"
+                              disabled={completeTaskMutation.isPending}
+                            >
+                              ✓
+                            </button>
+                          )}
                           <button
-                            onClick={() => handleComplete(task)}
-                            className="text-green-600 hover:text-green-900"
-                            disabled={completeTaskMutation.isPending}
+                            onClick={() => handleDeleteTask(task._id)}
+                            className="text-red-600 hover:text-red-900"
+                            disabled={deleteTaskMutation.isPending}
                           >
-                            ✓
+                            <Trash2 size={16} />
                           </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteTask(task._id)}
-                          className="text-red-600 hover:text-red-900"
-                          disabled={deleteTaskMutation.isPending}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
