@@ -11,6 +11,9 @@ export const DatePicker = () => {
     return `${yyyy}-${mm}-${dd}`;
   };
 
+  const formatWeekday = (date: Date) =>
+    date.toLocaleDateString('en-US', { weekday: 'long' });
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     if (val) {
@@ -37,6 +40,9 @@ export const DatePicker = () => {
           onChange={handleChange}
           className="text-lg font-semibold border rounded px-4 py-2"
         />
+        <span className="text-lg font-semibold text-gray-700">
+          {formatWeekday(selectedDate)}
+        </span>
         <button onClick={handleNext} className="px-2 py-1 border rounded">&gt;</button>
       </div>
     </div>

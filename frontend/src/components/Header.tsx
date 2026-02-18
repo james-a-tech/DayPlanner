@@ -1,7 +1,17 @@
 import { useState } from 'react';
-import { Menu, LogOut, Settings } from 'lucide-react';
+import { Menu, LogOut, Settings, Moon, Sun } from 'lucide-react';
 
-export const Header = ({ onMenuClick, onLogout }: { onMenuClick: () => void; onLogout: () => void }) => {
+export const Header = ({
+  onMenuClick,
+  onLogout,
+  theme,
+  onToggleTheme,
+}: {
+  onMenuClick: () => void;
+  onLogout: () => void;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
+}) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   const handleLogout = () => {
@@ -31,6 +41,13 @@ export const Header = ({ onMenuClick, onLogout }: { onMenuClick: () => void; onL
             </button>
             {showDropdown && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg p-2 z-50">
+                <button
+                  onClick={onToggleTheme}
+                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-lg"
+                >
+                  {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                  {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                </button>
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-lg text-red-600"

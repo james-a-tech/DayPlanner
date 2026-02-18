@@ -23,6 +23,7 @@ async def create_time_slot(
         "name": slot_data.name,
         "startTime": slot_data.startTime,
         "endTime": slot_data.endTime,
+        "duration": slot_data.duration if hasattr(slot_data, 'duration') else None,
         "color": slot_data.color,
         "isFixed": slot_data.isFixed,
         "daysOfWeek": slot_data.daysOfWeek,
@@ -76,6 +77,7 @@ async def update_time_slot(
         )
     
     update_data = slot_data.model_dump()
+    # ensure duration is included if provided (model_dump will include it when present)
     update_data["updatedAt"] = datetime.utcnow()
     
     result = slots.find_one_and_update(

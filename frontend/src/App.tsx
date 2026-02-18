@@ -9,6 +9,7 @@ const queryClient = new QueryClient();
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     // Check if user is already logged in
@@ -16,8 +17,20 @@ function App() {
     if (token) {
       setIsAuthenticated(true);
     }
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') {
+      setTheme(savedTheme);
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      setTheme('dark');
+    }
     setLoading(false);
   }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('theme-dark', theme === 'dark');
+    document.documentElement.classList.toggle('theme-light', theme === 'light');
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   const handleLoginSuccess = (token: string, user: any) => {
     setIsAuthenticated(true);
@@ -27,6 +40,10 @@ function App() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setIsAuthenticated(false);
+  };
+
+  const handleToggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
   if (loading) {
@@ -43,7 +60,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       {isAuthenticated ? (
-        <Dashboard onLogout={handleLogout} />
+        <Dashboard onLogout={handleLogout} theme={theme} onToggleTheme={handleToggleTheme} />
       ) : (
         <Login onLoginSuccess={handleLoginSuccess} />
       )}

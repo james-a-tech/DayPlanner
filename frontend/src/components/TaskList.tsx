@@ -1,6 +1,7 @@
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useAppStore } from '../store/appStore';
 import { useTasks, useCompleteTask, useCreateTask, useUpdateTask, useDeleteTask } from '../hooks/useTasks';
+import { useTimeSlots } from '../hooks/useTimeSlots';
 import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 
 export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) => {
@@ -11,12 +12,19 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
   const updateTaskMutation = useUpdateTask();
   const deleteTaskMutation = useDeleteTask();
 
+  const { data: timeSlots } = useTimeSlots();
+
   const [editingCell, setEditingCell] = useState<{ taskId: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
   const isSaving = useRef(false);
+  const [suppressedTemplateIds, setSuppressedTemplateIds] = useState<Set<string>>(new Set());
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    setSuppressedTemplateIds(new Set());
+  }, [selectedDate]);
 
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
@@ -24,15 +32,54 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
     const dayTasks = tasks.filter((task: any) => {
       const taskDate = new Date(task.plannedStartTime);
       return taskDate.toDateString() === selectedDate.toDateString();
-    }).sort((a: any, b: any) => {
-      return new Date(a.plannedStartTime).getTime() - new Date(b.plannedStartTime).getTime();
     });
+
+    // Include templates (time slot templates) for the selected weekday
+    const weekday = selectedDate.getDay();
+    const templateTasks: any[] = [];
+    if (timeSlots) {
+      for (const slot of timeSlots) {
+        if (slot.daysOfWeek && slot.daysOfWeek.includes(weekday)) {
+          // Build planned start/end timestamps on selectedDate
+          const [sh, sm] = (slot.startTime || '09:00').split(':').map(Number);
+          const [eh, em] = (slot.endTime || '10:00').split(':').map(Number);
+          const s = new Date(selectedDate);
+          s.setHours(sh, sm, 0, 0);
+          const e = new Date(selectedDate);
+          e.setHours(eh, em, 0, 0);
+          const duration = Math.max(0, Math.round((e.getTime() - s.getTime()) / 60000));
+          const templateId = `tmpl-${slot._id}`;
+          if (suppressedTemplateIds.has(templateId)) continue;
+          templateTasks.push({
+            _id: templateId,
+            title: slot.name,
+            description: slot.name,
+            priority: 'low',
+            status: 'todo',
+            plannedStartTime: s.toISOString(),
+            plannedEndTime: e.toISOString(),
+            duration,
+            isTemplate: true,
+          });
+        }
+      }
+    }
+
+    // Merge existing day tasks with templates, avoid duplicates by time
+    const merged = [...dayTasks];
+    for (const tmpl of templateTasks) {
+      const conflict = dayTasks.find((t: any) => new Date(t.plannedStartTime).getTime() === new Date(tmpl.plannedStartTime).getTime());
+      if (!conflict) merged.push(tmpl);
+    }
+
+    // Sort merged list by start time
+    merged.sort((a: any, b: any) => new Date(a.plannedStartTime).getTime() - new Date(b.plannedStartTime).getTime());
 
     // Insert free slot rows for gaps
     const withFreeSlots: any[] = [];
-    for (let i = 0; i < dayTasks.length; i++) {
-      const prev = dayTasks[i - 1];
-      const curr = dayTasks[i];
+    for (let i = 0; i < merged.length; i++) {
+      const prev = merged[i - 1];
+      const curr = merged[i];
       if (prev) {
         const prevEnd = new Date(prev.plannedEndTime);
         const currStart = new Date(curr.plannedStartTime);
@@ -55,7 +102,7 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
       withFreeSlots.push(curr);
     }
     return withFreeSlots;
-  }, [tasks, selectedDate]);
+  }, [tasks, selectedDate, timeSlots, suppressedTemplateIds]);
 
   const formatTime = (date: Date) => {
     const hours = date.getHours();
@@ -189,8 +236,26 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
         updatedData.description = editValue.trim();
       }
 
-      if (task._id && Object.keys(updatedData).length > 0) {
-        await updateTaskMutation.mutateAsync({ id: task._id, data: updatedData });
+      if (Object.keys(updatedData).length > 0) {
+        if (task.isTemplate) {
+          const createData = {
+            title: updatedData.title ?? task.title ?? 'New Task',
+            description: updatedData.description ?? task.description ?? '',
+            priority: task.priority ?? 'medium',
+            duration: updatedData.duration ?? task.duration ?? 0,
+            plannedStartTime: updatedData.plannedStartTime ?? task.plannedStartTime,
+            plannedEndTime: updatedData.plannedEndTime ?? task.plannedEndTime,
+            category: task.category ?? 'general',
+          };
+          await createTaskMutation.mutateAsync(createData);
+          setSuppressedTemplateIds((prev) => {
+            const next = new Set(prev);
+            if (task._id) next.add(task._id);
+            return next;
+          });
+        } else if (task._id) {
+          await updateTaskMutation.mutateAsync({ id: task._id, data: updatedData });
+        }
       }
     } catch (error: any) {
       console.error('Failed to update task:', error);
@@ -200,7 +265,7 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
       setEditValue('');
       isSaving.current = false;
     }
-  }, [editingCell, editValue, selectedDate, updateTaskMutation]);
+  }, [editingCell, editValue, selectedDate, updateTaskMutation, createTaskMutation]);
 
   const handleAddRow = async () => {
     const lastTask = filteredTasks[filteredTasks.length - 1];
@@ -347,7 +412,7 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
   // Move task up/down
   const moveTask = async (from: number, to: number) => {
     if (from === to || from < 0 || to < 0 || from >= filteredTasks.length || to >= filteredTasks.length) return;
-    const ordered = filteredTasks.filter((t: any) => !t.isFreeSlot);
+    const ordered = filteredTasks.filter((t: any) => !t.isFreeSlot && !t.isTemplate);
     const taskList = [...ordered];
     const [moved] = taskList.splice(from, 1);
     taskList.splice(to, 0, moved);
@@ -416,7 +481,8 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
               {filteredTasks.map((task: any, idx: number) => {
                 const startTime = new Date(task.plannedStartTime);
                 const endTime = calculateEndTime(task.plannedStartTime, task.duration);
-                const isMovable = !task.isFreeSlot;
+                const isMovable = !task.isFreeSlot && !task.isTemplate;
+                const isActionable = !task.isFreeSlot && !task.isTemplate;
                 return (
                   <tr key={task._id} className={`${task.isFreeSlot ? 'bg-red-100' : getPriorityColor(task.priority)} hover:bg-gray-50`}
                     draggable={isMovable}
@@ -471,7 +537,7 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
                         : getStatusBadge(task.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      {!task.isFreeSlot && (
+                      {isActionable && (
                         <div className="flex gap-3 items-center">
                           {task.status !== 'completed' && (
                             <button

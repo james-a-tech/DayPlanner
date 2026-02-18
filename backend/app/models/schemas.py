@@ -102,6 +102,7 @@ class TimeSlotCreate(BaseModel):
     name: str
     startTime: str  # HH:mm format
     endTime: str
+    duration: Optional[int] = None
     color: str = "#3B82F6"
     isFixed: bool = False
     daysOfWeek: List[int] = [0, 1, 2, 3, 4, 5, 6]
@@ -125,6 +126,7 @@ class TimeSlot(BaseModel):
     name: str
     startTime: str
     endTime: str
+    duration: Optional[int] = None
     color: str
     isFixed: bool
     daysOfWeek: List[int]

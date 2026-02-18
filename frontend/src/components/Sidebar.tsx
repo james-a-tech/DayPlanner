@@ -1,7 +1,8 @@
-export const Sidebar = ({ isOpen, onClose, setActiveTab, activeTab }: { isOpen: boolean; onClose: () => void; setActiveTab?: (tab: 'planner' | 'tasks') => void; activeTab?: 'planner' | 'tasks' }) => {
+export const Sidebar = ({ isOpen, onClose, setActiveTab, activeTab }: { isOpen: boolean; onClose: () => void; setActiveTab?: (tab: 'planner' | 'tasks' | 'templates') => void; activeTab?: 'planner' | 'tasks' | 'templates' }) => {
   const menuItems = [
-    { label: 'Dashboard', icon: '📊', href: '#dashboard' },
-    { label: 'Planner', icon: '✓', href: '#planner', tab: 'planner' },
+    { label: 'Dashboard', icon: '✓', href: '#planner', tab: 'planner' },
+    { label: 'Task', icon: '🗒️', href: '#tasks', tab: 'tasks' },
+    { label: 'Templates', icon: '🧾', href: '#templates', tab: 'templates' },
     { label: 'Calendar', icon: '📅', href: '#calendar' },
     { label: 'Settings', icon: '⚙️', href: '#settings' },
   ];
