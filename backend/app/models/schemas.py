@@ -41,6 +41,7 @@ class TaskCreate(BaseModel):
     plannedStartTime: datetime
     plannedEndTime: datetime
     category: str = "general"
+    timeSlotId: Optional[str] = None
 
     class Config:
         json_schema_extra = {

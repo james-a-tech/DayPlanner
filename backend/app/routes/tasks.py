@@ -31,6 +31,7 @@ async def create_task(
         "plannedStartTime": task_data.plannedStartTime,
         "plannedEndTime": task_data.plannedEndTime,
         "category": task_data.category,
+        "timeSlotId": task_data.timeSlotId,
         "createdAt": datetime.utcnow(),
         "updatedAt": datetime.utcnow()
     }

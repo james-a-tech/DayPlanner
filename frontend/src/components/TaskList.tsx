@@ -60,15 +60,22 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
             plannedEndTime: e.toISOString(),
             duration,
             isTemplate: true,
+            timeSlotId: slot._id,
           });
         }
       }
     }
 
-    // Merge existing day tasks with templates, avoid duplicates by time
+    // Merge existing day tasks with templates, avoid duplicates by time or timeSlotId
     const merged = [...dayTasks];
     for (const tmpl of templateTasks) {
-      const conflict = dayTasks.find((t: any) => new Date(t.plannedStartTime).getTime() === new Date(tmpl.plannedStartTime).getTime());
+      // Check if any existing task was created from this template
+      const conflict = dayTasks.find((t: any) => {
+        // Match by timeSlotId (for tasks created from this template)
+        if (t.timeSlotId === tmpl.timeSlotId) return true;
+        // Match by exact start time (legacy check)
+        return new Date(t.plannedStartTime).getTime() === new Date(tmpl.plannedStartTime).getTime();
+      });
       if (!conflict) merged.push(tmpl);
     }
 
@@ -246,6 +253,7 @@ export const TaskList = ({ onEditTask }: { onEditTask: (task: any) => void }) =>
             plannedStartTime: updatedData.plannedStartTime ?? task.plannedStartTime,
             plannedEndTime: updatedData.plannedEndTime ?? task.plannedEndTime,
             category: task.category ?? 'general',
+            timeSlotId: task.timeSlotId ?? null,
           };
           await createTaskMutation.mutateAsync(createData);
           setSuppressedTemplateIds((prev) => {
