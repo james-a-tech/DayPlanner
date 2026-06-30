@@ -85,71 +85,109 @@ DayPlanner/
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18+
-- Python 3.8+
-- MongoDB local instance or Atlas connection
-- npm or yarn + pip
 
-### Installation
+Depending on how you choose to run the application:
 
-1. **Install all dependencies**
+* **For Docker Compose (Option 1 - Recommended)**:
+  - [Docker](https://docs.docker.com/get-docker/)
+  - [Docker Compose](https://docs.docker.com/compose/install/)
+  - *No need to install Node.js, Python, or MongoDB locally!*
+
+* **For Local Development (Option 2)**:
+  - Node.js 18+
+  - Python 3.8+
+  - MongoDB local instance or Atlas connection
+  - npm or yarn + pip
+
+### Running the Application
+
+Choose one of the two options below to run the application.
+
+#### Option 1: Run with Docker Compose (Recommended)
+
+This is the easiest way to run the entire stack (MongoDB database, FastAPI backend, and React frontend) in containers.
+
+1. **Start all services**:
+   ```bash
+   docker compose up -d
+   ```
+   *(Alternatively, make the helper script executable and run it: `chmod +x docker.sh` then `./docker.sh start` - see [docker.sh](file:///home/james/Onedrive/Cloud/Projects/DayPlanner/docker.sh))*
+
+2. **Open / Access the Application**:
+   Once the containers are running, open your browser and navigate to:
+   - **Frontend Web App**: [http://localhost:3000](http://localhost:3000)
+   - **Backend API**: [http://localhost:5000](http://localhost:5000)
+   - **API Documentation (Swagger UI)**: [http://localhost:5000/docs](http://localhost:5000/docs)
+   - **API Health Check**: [http://localhost:5000/api/health](http://localhost:5000/api/health)
+
+   **Demo User Credentials:**
+   - Email: `demo@example.com`
+   - Password: `demo123`
+
+3. **Stop all services**:
+   ```bash
+   docker compose down
+   ```
+   *(Alternatively, run: `./docker.sh stop`)*
+
+#### Option 2: Run Locally (Manual Setup)
+
+If you prefer to run the components directly on your host machine:
+
+1. **Install dependencies**:
    ```bash
    # From root directory
    npm install
    cd backend && pip install -r requirements.txt
    cd ../frontend && npm install
    ```
+   *(See [backend/requirements.txt](file:///home/james/Onedrive/Cloud/Projects/DayPlanner/backend/requirements.txt))*
 
-2. **Configure MongoDB**
+2. **Configure MongoDB**:
    - Ensure MongoDB is running locally: `mongod`
-   - OR use Docker: `docker run -d -p 27017:27017 --name mongodb mongo:latest`
+   - OR run MongoDB via Docker: `docker run -d -p 27017:27017 --name mongodb mongo:latest`
    - OR use MongoDB Atlas (cloud)
 
-3. **Setup Backend Configuration**
+3. **Setup Backend Configuration**:
    ```bash
    cd backend
    cp .env.example .env
    # Edit .env with your MongoDB URI and JWT_SECRET
    ```
+   *(See [backend/.env.example](file:///home/james/Onedrive/Cloud/Projects/DayPlanner/backend/.env.example) and [backend/.env](file:///home/james/Onedrive/Cloud/Projects/DayPlanner/backend/.env))*
 
-### Running the Application
+4. **Start the servers**:
+   Choose one of the following methods to run the services:
 
-**Option 1: Run Both Servers** (from root)
-```bash
-npm run dev
-```
-This starts both backend and frontend simultaneously.
+   * **Method A: Run Both Servers Simultaneously** (from root)
+     ```bash
+     npm run dev
+     ```
 
-**Option 2: Run Backend and Frontend Separately**
+   * **Method B: Run Backend and Frontend Separately**
+     * **Terminal 1 (Backend)**:
+       ```bash
+       npm run dev:python
+       # OR
+       cd backend && python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 5000
+       ```
+     * **Terminal 2 (Frontend)**:
+       ```bash
+       npm run frontend
+       # OR
+       cd frontend && npm run dev
+       ```
 
-Terminal 1 - Backend (Python/FastAPI):
-```bash
-npm run dev:python
-# OR
-cd backend && python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 5000
-```
+   * **Method C: Run via npm scripts** (from root)
+     * **Terminal 1 (Backend)**: `npm run backend:python`
+     * **Terminal 2 (Frontend)**: `npm run frontend`
 
-Terminal 2 - Frontend (React):
-```bash
-npm run frontend
-# OR
-cd frontend && npm run dev
-```
-
-**Option 3: Run via npm scripts** (from root)
-```bash
-# Terminal 1: Backend
-npm run backend:python
-
-# Terminal 2: Frontend  
-npm run frontend
-```
-
-### Access the Application
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:5000
-- **API Health Check**: http://localhost:5000/api/health
-- **API Documentation**: http://localhost:5000/docs (Swagger UI)
+5. **Open / Access the Application**:
+   Open your browser and navigate to:
+   - **Frontend Web App**: [http://localhost:3000](http://localhost:3000)
+   - **Backend API**: [http://localhost:5000](http://localhost:5000)
+   - **API Health Check**: [http://localhost:5000/api/health](http://localhost:5000/api/health)
+   - **API Documentation (Swagger UI)**: [http://localhost:5000/docs](http://localhost:5000/docs)
 
 ## API Endpoints
 
