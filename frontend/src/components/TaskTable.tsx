@@ -8,6 +8,7 @@ interface TaskRow {
   id: string;
   name: string;
   duration: string;
+  selected?: boolean;
 }
 
 interface TemplateBlock {
@@ -35,6 +36,7 @@ export const TaskTable = () => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [schedule, setSchedule] = useState<ScheduledItem[] | null>(null);
+  const [startTime, setStartTime] = useState('09:00');
 
   useEffect(() => {
     const saved = localStorage.getItem('taskTableRows');
@@ -49,7 +51,7 @@ export const TaskTable = () => {
         // Ignore parse errors and fall back to default row
       }
     }
-    setRows([{ id: 'row-1', name: '', duration: '' }]);
+    setRows([{ id: 'row-1', name: '', duration: '', selected: true }]);
   }, []);
 
   useEffect(() => {
@@ -119,11 +121,11 @@ export const TaskTable = () => {
   const addRow = () => {
     setRows((prev) => [
       ...prev,
-      { id: `row-${prev.length + 1}`, name: '', duration: '' },
+      { id: `row-${prev.length + 1}`, name: '', duration: '', selected: true },
     ]);
   };
 
-  const updateRow = (index: number, key: keyof TaskRow, value: string) => {
+  const updateRow = (index: number, key: keyof TaskRow, value: any) => {
     setRows((prev) =>
       prev.map((row, i) => (i === index ? { ...row, [key]: value } : row))
     );
@@ -142,7 +144,7 @@ export const TaskTable = () => {
   const removeRow = (index: number) => {
     setRows((prev) => {
       if (prev.length <= 1) {
-        return [{ id: 'row-1', name: '', duration: '' }];
+        return [{ id: 'row-1', name: '', duration: '', selected: true }];
       }
       return prev.filter((_, i) => i !== index);
     });
@@ -157,15 +159,17 @@ export const TaskTable = () => {
         name: row.name.trim(),
         duration: parseDurationToMinutes(row.duration),
         order: index,
+        selected: row.selected,
       }))
-      .filter((task) => task.name && task.duration > 0)
+      .filter((task) => task.name && task.duration > 0 && task.selected !== false)
       .sort((a, b) => a.order - b.order);
 
     const templateBlocks = getTemplateBlocks();
     const occupied = [...templateBlocks].sort((a, b) => a.start.getTime() - b.start.getTime());
 
+    const [startHour, startMinute] = startTime.split(':').map(Number);
     const dayStart = new Date(selectedDate);
-    dayStart.setHours(9, 0, 0, 0);
+    dayStart.setHours(startHour, startMinute, 0, 0);
 
     let cursor = dayStart;
     const planned: ScheduledItem[] = [];
@@ -253,6 +257,8 @@ export const TaskTable = () => {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-teal-600">
             <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-12">
+              </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                 Task Name
               </th>
@@ -284,6 +290,14 @@ export const TaskTable = () => {
                 }}
                 style={dragOverIndex === index ? { outline: '2px solid #0ea5e9' } : {}}
               >
+                <td className="px-6 py-4 text-sm text-gray-900 w-12">
+                  <input
+                    type="checkbox"
+                    checked={row.selected !== false}
+                    onChange={(e) => updateRow(index, 'selected', e.target.checked)}
+                    className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded cursor-pointer"
+                  />
+                </td>
                 <td className="px-6 py-4 text-sm text-gray-900">
                   <div className="flex items-center gap-2">
                     <span className="text-gray-400">
@@ -341,21 +355,33 @@ export const TaskTable = () => {
         </table>
       </div>
 
-      <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => setSchedule(null)}
-          className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 transition"
-        >
-          Clear
-        </button>
-        <button
-          type="button"
-          onClick={generateSchedule}
-          className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
-        >
-          Plan
-        </button>
+      <div className="flex justify-between items-center mt-4">
+        <div className="flex items-center gap-2">
+          <label htmlFor="startTime" className="text-sm font-medium text-gray-700">Start Time:</label>
+          <input
+            type="time"
+            id="startTime"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+            className="border border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm px-2 py-1"
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setSchedule(null)}
+            className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 transition"
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            onClick={generateSchedule}
+            className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+          >
+            Plan
+          </button>
+        </div>
       </div>
 
       {schedule && (
